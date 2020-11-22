@@ -16,7 +16,7 @@ from torch.cuda.amp import autocast
 from torch import autograd
 from torch.utils.data import DataLoader
 
-import model
+import models
 
 
 class AverageMeter(object):

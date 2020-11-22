@@ -6,7 +6,7 @@ from torch import nn
 from contflame.data.utils import MultiLoader
 from torch.utils.data import DataLoader
 
-import model
+import models
 
 def train(model, optimizer, criterion, train_loader, config):
     model.train()
