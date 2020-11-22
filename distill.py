@@ -15,25 +15,7 @@ import numpy as np
 from torch.cuda.amp import autocast
 from torch import autograd
 from torch.utils.data import DataLoader
-
 import models
-
-
-class AverageMeter(object):
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, num):
-        self.val = val
-        self.sum += val * num
-        self.count += num
-        self.avg = self.sum / self.count
 
 w = 0
 def print_mnist(imgs, trgs):
@@ -53,8 +35,9 @@ def print_mnist(imgs, trgs):
 def train(model, optimizer, criterion, train_loader, config):
     model.train()
 
-    loss_meter = AverageMeter()
-    accuracy_meter = AverageMeter()
+    correct = 0
+    loss_sum = 0
+    tot = 0
 
     for step, (data, targets) in enumerate(train_loader):
         data = data.to(config['device'])
@@ -70,22 +53,21 @@ def train(model, optimizer, criterion, train_loader, config):
 
         _, preds = torch.max(outputs, dim=1)
 
-        loss_ = loss.item()
-        correct_ = preds.eq(targets).sum().item()
-        num = data.size(0)
+        loss_sum += loss.item()
+        correct += preds.eq(targets).sum().item()
+        tot += data.size(0)
 
-        accuracy = correct_ / num
+    accuracy = correct / tot
+    loss = loss_sum / tot
 
-        loss_meter.update(loss_, num)
-        accuracy_meter.update(accuracy, num)
-
-    return loss_meter.avg, accuracy_meter.avg
+    return loss, accuracy
 
 def test(model, criterion, test_loader, config):
     model.eval()
 
-    loss_meter = AverageMeter()
-    correct_meter = AverageMeter()
+    correct = 0
+    loss_sum = 0
+    tot = 0
 
     for step, (data, targets) in enumerate(test_loader):
         data = data.to(config['device'])
@@ -97,16 +79,14 @@ def test(model, criterion, test_loader, config):
 
         _, preds = torch.max(outputs, dim=1)
 
-        loss_ = loss.item()
-        correct_ = preds.eq(targets).sum().item()
-        num = data.size(0)
+        loss_sum += loss.item()
+        correct += preds.eq(targets).sum().item()
+        tot += data.size(0)
 
-        loss_meter.update(loss_, num)
-        correct_meter.update(correct_, 1)
+    accuracy = correct / tot
+    loss = loss_sum / tot
 
-    accuracy = correct_meter.sum / len(test_loader.dataset)
-
-    return loss_meter.avg, accuracy
+    return loss, accuracy
 
 
 def run(config):
@@ -130,7 +110,7 @@ def run(config):
     criterion = nn.CrossEntropyLoss()
 
     # Model
-    net = getattr(model, model_config['arch']).Model(model_config)
+    net = getattr(models, model_config['arch']).Model(model_config)
     net.to(run_config['device'])
 
     # Data

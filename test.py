@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    net = getattr(model, model_config['arch']).Model(model_config)
+    net = getattr(models, model_config['arch']).Model(model_config)
     net.load_state_dict(checkpoint['init'])
     net.to(run_config['device'])
 
