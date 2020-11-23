@@ -15,7 +15,7 @@ import numpy as np
 from torch.cuda.amp import autocast
 from torch import autograd
 from torch.utils.data import DataLoader
-import model
+import models
 
 w = 0
 def print_images(imgs, trgs, mean, std):
@@ -116,7 +116,7 @@ def run(config):
     criterion = nn.CrossEntropyLoss()
 
     # Model
-    net = getattr(model, model_config['arch']).Model(model_config)
+    net = getattr(models, model_config['arch']).Model(model_config)
     net.to(run_config['device'])
 
     # Data

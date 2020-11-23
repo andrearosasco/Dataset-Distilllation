@@ -8,7 +8,7 @@ from torch import nn
 from contflame.data.utils import MultiLoader
 from torch.utils.data import DataLoader
 
-import model
+import models
 
 def train(model, optimizer, criterion, train_loader, config):
     model.train()
@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    net = getattr(model, model_config['arch']).Model(model_config)
+    net = getattr(models, model_config['arch']).Model(model_config)
     net.load_state_dict(checkpoint['init'])
     net.to(run_config['device'])
 
