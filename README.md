@@ -5,6 +5,7 @@ Implementation of the technique described in the paper "Dataset Distillation (20
 For the code to work you'll have to install
 - ```matplotlib``` - used to save and visualized the distilled images 
 - ```higher``` - pytorch package for dealing with higher-order gradients
+- ```dill``` - to pickle and unpickle the lambdas contained in the configuration file
 - ```continual-flame``` - contains continual learning utilities and datasets (used to manage the distilled images)
 - ```pytorch```
 
