@@ -1,4 +1,6 @@
 import dill
+import matplotlib.pyplot as plt
+from PIL import Image
 import numpy as np
 import contflame.data.datasets as datasets
 import torch
@@ -6,7 +8,7 @@ from torch import nn
 from contflame.data.utils import MultiLoader
 from torch.utils.data import DataLoader
 
-import models
+import model
 
 def train(model, optimizer, criterion, train_loader, config):
     model.train()
@@ -58,13 +60,34 @@ def test(model, criterion, test_loader, config):
         tot += data.size(0)
         correct += preds.eq(targets).sum().item()
 
-    accuracy = correct / len(test_loader.dataset)
+    accuracy = correct / tot
     loss = loss_sum / tot
 
     return loss, accuracy
 
+w = 0
+def print_images(imgs, trgs, mean, std):
+    global w
+    for img, trg in zip(imgs, trgs):
+        print(trg)
+
+        std = [std[0] for _ in range(img.size(0))] if len(std) == 1 else std
+        mean = [mean[0] for _ in range(img.size(0))] if len(mean) == 1 else mean
+
+        for i in range(img.size(0)):
+            img[i] = img[i] * std[i] + mean[i]
+
+        img = img * 255
+        img = img.cpu().detach().numpy()
+        img = np.transpose(img, (1, 2, 0))
+        img = np.squeeze(img)
+        img = img.astype(np.uint8)
+
+        plt.imsave(f'./img{w}.png', img)
+        w += 1
+
 if __name__ == '__main__':
-    with open('distilled2.ptc', 'rb') as file:
+    with open('distill6', 'rb') as file:
         checkpoint = dill.load(file)
 
     config = checkpoint['config']
@@ -77,7 +100,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    net = getattr(models, model_config['arch']).Model(model_config)
+    net = getattr(model, model_config['arch']).Model(model_config)
     net.load_state_dict(checkpoint['init'])
     net.to(run_config['device'])
 
@@ -91,8 +114,13 @@ if __name__ == '__main__':
 
     bufferloader = MultiLoader([buffer], batch_size=len(buffer))
 
+    mean, std = data_config['test_transform'].transforms[-1].mean, data_config['test_transform'].transforms[-1].std
+    for x, y in bufferloader:
+        print_images(x, y, mean, std)
+
     for epoch in range(param_config['epochs']):
-        optimizer = torch.optim.SGD(net.parameters(), lr=lrs[epoch] if epoch < len(lrs) else lrs[-1], )
+        lr = lrs[epoch] if epoch < len(lrs) else lrs[-1]
+        optimizer = torch.optim.SGD(net.parameters(), lr=np.log(1 + np.exp(lr)), )
 
         buffer_loss, buffer_accuracy = train(net, optimizer, criterion, bufferloader, run_config)
         test_loss, test_accuracy = test(net, criterion, testloader, run_config)

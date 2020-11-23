@@ -14,7 +14,7 @@ model_config = OrderedDict([
     # ('base_channels', 16),
     # ('widening_factor', 10),
     # ('drop_rate', 0.0),
-    # ('input_shape', (1, 28, 28)),
+    ('input_shape', (1, 28, 28)),
 ])
 
 data_config = OrderedDict([

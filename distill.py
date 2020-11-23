@@ -15,21 +15,27 @@ import numpy as np
 from torch.cuda.amp import autocast
 from torch import autograd
 from torch.utils.data import DataLoader
-import models
+import model
 
 w = 0
-def print_mnist(imgs, trgs):
+def print_images(imgs, trgs, mean, std):
     global w
     for img, trg in zip(imgs, trgs):
         print(trg)
 
-        img = img * 0.3081 + 0.1307  # unnormalize
-        img = img * 255
-        npimg = img.cpu().squeeze().detach().numpy()
-        npimg = npimg.astype(np.uint8)
-        # npimg = np.transpose(npimg, (1, 2, 0))
+        std = [std[0] for _ in range(img.size(0))] if len(std) == 1 else std
+        mean = [mean[0] for _ in range(img.size(0))] if len(mean) == 1 else mean
 
-        plt.imsave(f'./img{w}.png', npimg)
+        for i in range(img.size(0)):
+            img[i] = img[i] * std[i] + mean[i]
+
+        img = img * 255
+        img = img.cpu().detach().numpy()
+        img = np.transpose(img, (1, 2, 0))
+        img = np.squeeze(img)
+        img = img.astype(np.uint8)
+
+        plt.imsave(f'./img{w}.png', img)
         w += 1
 
 def train(model, optimizer, criterion, train_loader, config):
@@ -53,7 +59,7 @@ def train(model, optimizer, criterion, train_loader, config):
 
         _, preds = torch.max(outputs, dim=1)
 
-        loss_sum += loss.item()
+        loss_sum += loss.item() * data.size(0)
         correct += preds.eq(targets).sum().item()
         tot += data.size(0)
 
@@ -79,7 +85,7 @@ def test(model, criterion, test_loader, config):
 
         _, preds = torch.max(outputs, dim=1)
 
-        loss_sum += loss.item()
+        loss_sum += loss.item() * data.size(0)
         correct += preds.eq(targets).sum().item()
         tot += data.size(0)
 
@@ -110,7 +116,7 @@ def run(config):
     criterion = nn.CrossEntropyLoss()
 
     # Model
-    net = getattr(models, model_config['arch']).Model(model_config)
+    net = getattr(model, model_config['arch']).Model(model_config)
     net.to(run_config['device'])
 
     # Data
@@ -141,11 +147,13 @@ def run(config):
     bufferloader = MultiLoader([buffer], batch_size=len(buffer))
 
     if log_config['images']:
+        mean, std = data_config['test_transform'].transforms[-1].mean, data_config['test_transform'].transforms[-1].std
         for x, y in bufferloader:
-            print_mnist(x, y)
+            print_images(x, y, mean, std)
 
     for epoch in range(param_config['epochs']):
-        optimizer = torch.optim.SGD(net.parameters(), lr=lrs[epoch] if epoch < len(lrs) else lrs[-1], )
+        lr = lrs[epoch] if epoch < len(lrs) else lrs[-1]
+        optimizer = torch.optim.SGD(net.parameters(), lr=np.log(1 + np.exp(lr)), )
 
         buffer_loss, buffer_accuracy = train(net, optimizer, criterion, bufferloader, run_config)
 
@@ -218,7 +226,7 @@ def distill(model, buffer, config, criterion, train_loader):
                             int(round(len(train_loader) * param_config['outer_steps'] * 0.05)) - 1 \
                             and j == param_config['inner_steps'] - 1:
 
-                        lrs = {f'Learning rate {i}': lr.item() for (i, lr) in enumerate(lr_list)}
+                        lrs = {f'Learning rate {i}': np.log(1 + np.exp(lr.item())) for (i, lr) in enumerate(lr_list)}
                         test_loss, test_accuracy = test(fmodel, criterion, eval_trainloader, run_config)
                         metrics = {f'Distill train loss': test_loss, f'Distill train accuracy': test_accuracy, f'Distill step': step + i * len(train_loader)}
 
